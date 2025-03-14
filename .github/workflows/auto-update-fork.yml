@@ -1,0 +1,63 @@
+name: Auto Update Fork
+
+on:
+  schedule:
+    - cron: '0 3 * * 6'  # Runs at 03:00 UTC
+  workflow_dispatch:  # Allows manual execution if needed
+
+jobs:
+  update-fork:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Add upstream and fetch changes
+        run: |
+          if ! git remote get-url upstream &>/dev/null; then
+            git remote add upstream https://github.com/sarbagyastha/youtube_player_flutter.git
+          fi
+          git fetch --no-tags --prune --depth=1 upstream main  # Fetch only main branch from original repo
+          git fetch --no-tags --prune --depth=1 origin develop  # Fetch develop branch from fork
+
+      - name: Check for existing PR
+        id: check_pr
+        run: |
+          EXISTING_PR=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?state=open" | jq -r \
+            '[.[] | select(.head.ref == "update-from-original-repo")][0].head.ref')
+
+          if [[ "$EXISTING_PR" == "update-from-original-repo" ]]; then
+            echo "PR_BRANCH=update-from-original-repo" >> $GITHUB_ENV
+            echo "PR_EXISTS=true" >> $GITHUB_ENV
+          else
+            echo "PR_BRANCH=update-from-original-repo" >> $GITHUB_ENV
+            echo "PR_EXISTS=false" >> $GITHUB_ENV
+          fi
+
+      - name: Checkout and merge upstream changes
+        run: |
+          git checkout -B "$PR_BRANCH" origin/develop
+          git merge --no-edit upstream/main  # Merge latest changes from upstream main
+
+      - name: Push updated branch
+        run: |
+          git push origin "$PR_BRANCH" --force
+
+      - name: Create Pull Request (if not exists)
+        if: env.PR_EXISTS == 'false'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "Merge upstream main into develop"
+          branch: update-from-original-repo
+          title: "Merge upstream main into develop"
+          body: "This PR merges updates from the upstream main branch into develop."
+          base: develop  # Merge into develop branch of the fork
