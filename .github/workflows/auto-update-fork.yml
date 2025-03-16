@@ -45,7 +45,7 @@ jobs:
       - name: Checkout and merge upstream changes
         run: |
           git checkout -B "$PR_BRANCH" origin/develop
-          git merge --no-edit upstream/main  # Merge latest changes from upstream main
+          git merge upstream/main --allow-unrelated-histories --no-edit  # Merge latest changes from upstream main
 
       - name: Push updated branch
         run: |
