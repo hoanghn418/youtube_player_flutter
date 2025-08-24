@@ -4,11 +4,13 @@
 
 import 'package:flutter/material.dart';
 
+import '../enums/player_state.dart';
 import '../enums/thumbnail_quality.dart';
 import '../utils/errors.dart';
 import '../utils/youtube_meta_data.dart';
 import '../utils/youtube_player_controller.dart';
 import '../utils/youtube_player_flags.dart';
+import '../widgets/buffering_overlay.dart';
 import '../widgets/widgets.dart';
 import 'raw_youtube_player.dart';
 
@@ -57,6 +59,7 @@ class YoutubePlayer extends StatefulWidget {
     this.actionsPadding = const EdgeInsets.all(8.0),
     this.thumbnail,
     this.showVideoProgressIndicator = false,
+    this.showBufferingOverlay = false,
   })  : progressColors = progressColors ?? const ProgressBarColors(),
         progressIndicatorColor = progressIndicatorColor ?? Colors.red;
 
@@ -147,6 +150,13 @@ class YoutubePlayer extends StatefulWidget {
   /// Default is false.
   /// {@endtemplate}
   final bool showVideoProgressIndicator;
+
+  /// {@template youtube_player_flutter.showBufferingOverlay}
+  /// Defines whether to show or hide buffering overlay above the player.
+  ///
+  /// Default is false.
+  /// {@endtemplate}
+  final bool showBufferingOverlay;
 
   /// Converts fully qualified YouTube Url to video id.
   ///
@@ -307,6 +317,11 @@ class _YoutubePlayerState extends State<YoutubePlayer> {
               widget.onEnded?.call(metaData);
             },
           ),
+          if (widget.showBufferingOverlay &&
+              controller.value.playerState == PlayerState.buffering)
+            Positioned.fill(
+              child: BufferingOverlay(),
+            ),
           if (!controller.flags.hideThumbnail)
             AnimatedOpacity(
               opacity: controller.value.isPlaying ? 0 : 1,
